@@ -1,0 +1,38 @@
+name: CI/CD Pipeline for Docker
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-test-push:
+    runs-on: ubuntu-latest
+
+    steps:
+    # Étape 1 : récupérer le code source
+    - name: checkout code
+      uses: actions/checkout@v3
+
+    # Étape 2 : construire l'image Docker
+    - name: build Docker image
+      run: docker build -t workflow-apache-php .
+
+    # Étape 3 : tester l'application
+    - name: run container and test application
+      run: |
+        docker run -d -p 8080:80 --name test-container workflow-apache-php
+        sleep 10
+        curl -f http://localhost:8080
+        docker stop test-container
+        docker rm test-container
+
+    # Étape 4 : pousser l'image sur Docker Hub
+    - name: push Docker image
+      env:
+        DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      run: |
+        echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+        docker tag workflow-apache-php:latest $DOCKER_USERNAME/workflow-apache-php:latest
+        docker push $DOCKER_USERNAME/workflow-apache-php:latest
